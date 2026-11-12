@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Todo List</title>
+<style>
+  :root {
+    --bg: #f6f7f9;
+    --card: #ffffff;
+    --text: #1f2328;
+    --muted: #6b7280;
+    --border: #e3e6ea;
+    --accent: #2563eb;
+    --accent-soft: #eef2ff;
+    --done: #9aa3af;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0f1115;
+      --card: #171a21;
+      --text: #e6e8ec;
+      --muted: #8b93a1;
+      --border: #2a2f3a;
+      --accent: #6b9bff;
+      --accent-soft: #1b2436;
+      --done: #666d7a;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    min-height: 100vh;
+    background: var(--bg);
+    color: var(--text);
+    font: 16px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    display: flex;
+    justify-content: center;
+    padding: 48px 16px;
+  }
+  .app {
+    width: 100%;
+    max-width: 560px;
+  }
+  h1 {
+    font-size: 24px;
+    letter-spacing: -0.01em;
+    margin: 0 0 4px;
+  }
+  .sub {
+    color: var(--muted);
+    font-size: 14px;
+    margin: 0 0 24px;
+  }
+  form {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 20px;
+  }
+  input[type="text"] {
+    flex: 1;
+    min-width: 0;
+    padding: 12px 14px;
+    font-size: 15px;
+    color: var(--text);
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    outline: none;
+  }
+  input[type="text"]:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-soft);
+  }
+  input[type="text"]::placeholder { color: var(--muted); }
+  button {
+    font: inherit;
+    cursor: pointer;
+    border-radius: 10px;
+    border: 1px solid transparent;
+  }
+  .add-btn {
+    padding: 12px 20px;
+    background: var(--accent);
+    color: #fff;
+    font-weight: 600;
+  }
+  .add-btn:hover { filter: brightness(1.08); }
+  .add-btn:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+    filter: none;
+  }
+  ul {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+  }
+  li {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--border);
+  }
+  li:last-child { border-bottom: none; }
+  li input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    accent-color: var(--accent);
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+  .label {
+    flex: 1;
+    min-width: 0;
+    word-break: break-word;
+    cursor: pointer;
+  }
+  li.done .label {
+    color: var(--done);
+    text-decoration: line-through;
+  }
+  .del {
+    flex-shrink: 0;
+    width: 28px;
+    height: 28px;
+    display: grid;
+    place-items: center;
+    font-size: 16px;
+    color: var(--muted);
+    background: transparent;
+    border-radius: 8px;
+    opacity: 0;
+  }
+  li:hover .del, .del:focus-visible { opacity: 1; }
+  .del:hover { color: #e5484d; background: var(--accent-soft); }
+  .empty {
+    padding: 40px 16px;
+    text-align: center;
+    color: var(--muted);
+    font-size: 14px;
+    background: var(--card);
+    border: 1px dashed var(--border);
+    border-radius: 12px;
+  }
+  .footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 12px;
+    font-size: 13px;
+    color: var(--muted);
+  }
+  .clear-btn {
+    padding: 6px 10px;
+    font-size: 13px;
+    color: var(--muted);
+    background: transparent;
+  }
+  .clear-btn:hover { color: var(--text); background: var(--accent-soft); }
+  .clear-btn:disabled { opacity: 0.4; cursor: default; background: transparent; }
+  .hidden { display: none; }
+</style>
+</head>
+<body>
+  <div class="app">
+    <h1>待办事项</h1>
+    <p class="sub">输入内容后按回车添加</p>
+
+    <form id="form">
+      <input id="input" type="text" placeholder="要做点什么？" autocomplete="off" maxlength="200">
+      <button class="add-btn" type="submit" disabled>添加</button>
+    </form>
+
+    <ul id="list"></ul>
+    <div class="empty" id="empty">还没有待办，先添加一条吧。</div>
+
+    <div class="footer hidden" id="footer">
+      <span id="count"></span>
+      <button class="clear-btn" id="clear" type="button" disabled>清除已完成</button>
+    </div>
+  </div>
+
+<script>
+(function () {
+  const KEY = 'todo-list.items';
+  const form = document.getElementById('form');
+  const input = document.getElementById('input');
+  const list = document.getElementById('list');
+  const empty = document.getElementById('empty');
+  const footer = document.getElementById('footer');
+  const countEl = document.getElementById('count');
+  const clearBtn = document.getElementById('clear');
+  const addBtn = form.querySelector('.add-btn');
+
+  let items = [];
+
+  function load() {
+    try {
+      const raw = localStorage.getItem(KEY);
+      const parsed = raw ? JSON.parse(raw) : [];
+      items = Array.isArray(parsed)
+        ? parsed.filter(t => t && typeof t.text === 'string')
+        : [];
+    } catch (e) {
+      items = [];
+    }
+    items = items.map(t => ({
+      id: typeof t.id === 'number' ? t.id : Date.now() + Math.random(),
+      text: t.text,
+      done: !!t.done
+    }));
+  }
+
+  function save() {
+    try {
+      localStorage.setItem(KEY, JSON.stringify(items));
+    } catch (e) { /* 存储不可用时静默跳过 */ }
+  }
+
+  function render() {
+    list.innerHTML = '';
+    items.forEach(item => {
+      const li = document.createElement('li');
+      if (item.done) li.className = 'done';
+
+      const box = document.createElement('input');
+      box.type = 'checkbox';
+      box.checked = item.done;
+      box.setAttribute('aria-label', '完成：' + item.text);
+      box.addEventListener('change', () => {
+        item.done = box.checked;
+        save();
+        render();
+      });
+
+      const label = document.createElement('span');
+      label.className = 'label';
+      label.textContent = item.text;
+      label.addEventListener('click', () => {
+        item.done = !item.done;
+        save();
+        render();
+      });
+
+      const del = document.createElement('button');
+      del.type = 'button';
+      del.className = 'del';
+      del.textContent = '✕';
+      del.setAttribute('aria-label', '删除：' + item.text);
+      del.addEventListener('click', () => {
+        items = items.filter(t => t.id !== item.id);
+        save();
+        render();
+      });
+
+      li.append(box, label, del);
+      list.appendChild(li);
+    });
+
+    const left = items.filter(t => !t.done).length;
+    const doneCount = items.length - left;
+
+    empty.classList.toggle('hidden', items.length > 0);
+    footer.classList.toggle('hidden', items.length === 0);
+    countEl.textContent = left + ' 项待完成';
+    clearBtn.disabled = doneCount === 0;
+  }
+
+  form.addEventListener('submit', e => {
+    e.preventDefault();
+    const text = input.value.trim();
+    if (!text) return;
+    items.push({ id: Date.now() + Math.random(), text: text, done: false });
+    input.value = '';
+    addBtn.disabled = true;
+    save();
+    render();
+    input.focus();
+  });
+
+  input.addEventListener('input', () => {
+    addBtn.disabled = !input.value.trim();
+  });
+
+  clearBtn.addEventListener('click', () => {
+    items = items.filter(t => !t.done);
+    save();
+    render();
+  });
+
+  load();
+  render();
+  input.focus();
+})();
+</script>
+</body>
+</html>
